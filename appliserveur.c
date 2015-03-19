@@ -13,13 +13,13 @@
 
 #define END_LINE 0x0
 #define SERVER_PORT 1500
-#define MAX_MSG 100
+#define MAX_MSG 50
 
 /* definition of the type file request */
 typedef struct file_req_s {
    char name[20];
    int size;
-   char zero[8]; /* pour que la requete fasse 32bits */
+   char zero[8]; 
 } file_req_t ;
 
 /*function readline*/
@@ -27,10 +27,14 @@ extern int read_line(int newSd, char *line_to_return);
 
 int main (int argc, char *argv[])
 {
-	int sd, newSd, n;
+	int sd, newSd, n; 
 	socklen_t cliLen ;
 	
+	/* data concerning the file */
 	file_req_t file_req1;
+	FILE * fic = NULL;	
+	int cpt_line = 0; /* to print the number of the line */
+	
 
 	struct sockaddr_in cliAddr, servAddr ;
 	char line[MAX_MSG] ;
@@ -75,21 +79,28 @@ int main (int argc, char *argv[])
 		printf("file request recepted \n filename : %s\n", file_req1.name);
 		printf("size of the file : %d\n", file_req1.size);
 		
-		/* reception of the first line of the file */
-		n = recv(newSd, &line, MAX_MSG, 0);
-		printf("first line of the file recepted\n");
-		printf("%s : %s\n", file_req1.name, line);
+		/* create a new file which will be a copy of the sent file */
+		if((fic = fopen(file_req1.name, "w+")) == NULL){
+			perror("error memory");
+			return ERROR;		
+		}
+		
 
-		/*receive segments*/
-		while(read_line(newSd, line) != ERROR)
-		{
-			printf("%s : received from %s : TCP%d : %s\n", argv[0], inet_ntoa(cliAddr.sin_addr), ntohs(cliAddr.sin_port), line);
+		/* reception of the file line by line */
+		while(recv(newSd, line, MAX_MSG, 0) == MAX_MSG){
+			cpt_line++;
 			
-			/*init line*/
-			memset(line, 0x0, MAX_MSG) ;
-		}/*while(read_line)*/
-	}/*while(1)*/
+			if(!fprintf(fic, "%s",line)){  /* write on the file */
+				perror("error writing on file");
+				return ERROR;	
+			}				
+			printf("line n°%d : %s\n", cpt_line, line);
+		}
+		fputs(line, fic);
+		printf("%s\n", line);
 
+	}/*while(1)*/
+	fclose(fic); /* close the file */
 }
 	
 	int read_line(int newSd, char *line_to_return)

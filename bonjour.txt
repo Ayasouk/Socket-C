@@ -1,2 +1,5 @@
-voici le contenu du fichier , j'espere que ca marche plutot bien 
-jai sauté une ligne ...
+
+njour je suis le fichier que tu viens d'ouvrir
+je sais pas si l'envoi a marcher 
+mais je te souhaite bon courage pour la suite du tp 
+okokokokoko

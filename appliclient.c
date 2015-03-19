@@ -10,13 +10,13 @@
 
 
 #define SERVER_PORT 1500
-#define MAX_MSG 100
+#define MAX_MSG 50
 
 /* definition of the type file request */
 typedef struct file_req_s {
    char name[20];
    int size;
-   char zero[8]; /* pour que la requete fasse 32bits */
+   char zero[8];
 } file_req_t ;
 
 int main(int argc, char ** argv){
@@ -28,7 +28,7 @@ int main(int argc, char ** argv){
 	file_req_t file_req1;
 	FILE * fic = NULL;	
 	char file_line[MAX_MSG];
-	int nb_lu;	
+	int cpt_line = 0; /* to print the number of line sent */	
 
 	if(argc<3){
 		printf("usage: %s <server> <data1> <data2>... <dataN>\n",argv[0]);
@@ -79,29 +79,22 @@ int main(int argc, char ** argv){
  	/* send of a file request */
 	rc = send(sd, &file_req1, sizeof(file_req_t), 0);
 	printf(" send a file request to %s\n", argv[1]);
-	printf("file_req.name : %s\n file_req.size %d", file_req1.name, file_req1.size);
+	printf("file_req.name : %s\n file_req.size %d\n", file_req1.name, file_req1.size);
 
 	/* open a file and send the first line */
 	if((fic = fopen(file_req1.name, "r")) == NULL){
 		perror("error filename");
 		exit(-1);	 
 	}
-
-	nb_lu = fread(file_line, MAX_MSG, 1, fic);
-	rc = send(sd, file_line, MAX_MSG, 0);
-	printf("send of the first line of the file : %s\n", file_line);
-	printf("size of the line : %d\n", nb_lu);
-	printf("size of the line send : %d\n", rc);		
 	
-	for(i=2; i<argc; i++){
-		rc = send(sd, argv[i],strlen(argv[i]) + 1, 0);
-		
-		if(rc<0){
-			perror("cannot send data");
-			close(sd);
-			exit(1);
-		}
-		printf("%s: data%u sent (%s)\n", argv[0], i-1, argv[i]);
+	/* send of the file line by line*/
+	while(fgets(file_line, MAX_MSG, fic) != NULL){
+		rc = send(sd, file_line, MAX_MSG, 0);
+		cpt_line++;
+		printf("line n°%d : %s\n", cpt_line, file_line);
+		printf("size of the line send : %d\n", rc);		
 	}
+	
+	fclose(fic); /* close the file */
 	return 0;
 }
