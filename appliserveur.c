@@ -15,14 +15,23 @@
 #define SERVER_PORT 1500
 #define MAX_MSG 100
 
+/* definition of the type file request */
+typedef struct file_req_s {
+   char name[20];
+   int size;
+   char zero[8]; /* pour que la requete fasse 32bits */
+} file_req_t ;
+
 /*function readline*/
 extern int read_line(int newSd, char *line_to_return);
 
 int main (int argc, char *argv[])
 {
-	int sd, newSd; 
+	int sd, newSd, n;
 	socklen_t cliLen ;
 	
+	file_req_t file_req1;
+
 	struct sockaddr_in cliAddr, servAddr ;
 	char line[MAX_MSG] ;
 	
@@ -61,6 +70,16 @@ int main (int argc, char *argv[])
 		/*init line*/
 		memset(line, 0x0, MAX_MSG) ;
 		
+		/* reception of a file request */
+ 		n = recv(newSd, &file_req1, sizeof(file_req1), 0);
+		printf("file request recepted \n filename : %s\n", file_req1.name);
+		printf("size of the file : %d\n", file_req1.size);
+		
+		/* reception of the first line of the file */
+		n = recv(newSd, &line, MAX_MSG, 0);
+		printf("first line of the file recepted\n");
+		printf("%s : %s\n", file_req1.name, line);
+
 		/*receive segments*/
 		while(read_line(newSd, line) != ERROR)
 		{
@@ -70,7 +89,7 @@ int main (int argc, char *argv[])
 			memset(line, 0x0, MAX_MSG) ;
 		}/*while(read_line)*/
 	}/*while(1)*/
-	
+
 }
 	
 	int read_line(int newSd, char *line_to_return)
