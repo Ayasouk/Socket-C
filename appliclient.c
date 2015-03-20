@@ -10,14 +10,20 @@
 
 
 #define SERVER_PORT 1500
-#define MAX_MSG 50
+#define MAX_MSG 100
+
+#define REQ_OK 1
+#define REQ_UPLOAD 2
+#define REQ_KO -1
 
 /* definition of the type file request */
 typedef struct file_req_s {
    char name[20];
    int size;
-   char zero[8];
+   char REQ;
 } file_req_t ;
+
+int read_sizef(char * filename);
 
 int main(int argc, char ** argv){
 	int sd, rc, i;
@@ -74,16 +80,21 @@ int main(int argc, char ** argv){
 	
 	/* initialisation of the file request */
 	strcpy(file_req1.name, argv[2]);
-	file_req1.size = 3;	
-	
+	file_req1.size = read_sizef(argv[2]);
+	file_req1.REQ = REQ_UPLOAD; /* requete d'envoi de fichier */
+
  	/* send of a file request */
 	rc = send(sd, &file_req1, sizeof(file_req_t), 0);
 	printf(" send a file request to %s\n", argv[1]);
-	printf("file_req.name : %s\n file_req.size %d\n", file_req1.name, file_req1.size);
+	printf("file_req.name : %s\n file_req.size %d\n ", file_req1.name, file_req1.size);
+
+	/* reception of the file request to comfirm */
+	rc = recv(sd, &file_req1, sizeof(file_req_t), 0);
+	(file_req1.REQ == REQ_OK)? printf("reception of the comfirmation :\n") : perror("the transfer cancel by the server");
 
 	/* open a file and send the first line */
 	if((fic = fopen(file_req1.name, "r")) == NULL){
-		perror("error filename");
+		perror("error : opening file");
 		exit(-1);	 
 	}
 	
@@ -92,9 +103,26 @@ int main(int argc, char ** argv){
 		rc = send(sd, file_line, MAX_MSG, 0);
 		cpt_line++;
 		printf("line n°%d : %s\n", cpt_line, file_line);
-		printf("size of the line send : %d\n", rc);		
+		printf("size of the line send : %d\n", rc);	
 	}
 	
 	fclose(fic); /* close the file */
+	close(sd);
 	return 0;
 }
+
+int read_sizef(char * filename){
+	int size;
+	FILE * fic = NULL;
+	
+	if((fic = fopen(filename, "r")) == NULL){
+		perror("error : opening file");
+		exit(-1);	
+	}
+	fseek(fic, 0, SEEK_END);
+	size = ftell(fic);
+	fseek(fic, 0, SEEK_SET);
+	fclose(fic);
+	return size;
+}
+

@@ -13,13 +13,17 @@
 
 #define END_LINE 0x0
 #define SERVER_PORT 1500
-#define MAX_MSG 50
+#define MAX_MSG 100
+
+#define REQ_OK 1
+#define REQ_UPLOAD 2
+#define REQ_KO -1
 
 /* definition of the type file request */
 typedef struct file_req_s {
    char name[20];
    int size;
-   char zero[8]; 
+   char REQ; /* SND, OK or KO */
 } file_req_t ;
 
 /*function readline*/
@@ -34,7 +38,8 @@ int main (int argc, char *argv[])
 	file_req_t file_req1;
 	FILE * fic = NULL;	
 	int cpt_line = 0; /* to print the number of the line */
-	
+	char rep_file[64];
+	char choix; 
 
 	struct sockaddr_in cliAddr, servAddr ;
 	char line[MAX_MSG] ;
@@ -77,30 +82,55 @@ int main (int argc, char *argv[])
 		/* reception of a file request */
  		n = recv(newSd, &file_req1, sizeof(file_req1), 0);
 		printf("file request recepted \n filename : %s\n", file_req1.name);
-		printf("size of the file : %d\n", file_req1.size);
+		printf("size of the file : %d octets\n", file_req1.size);
 		
+		if(file_req1.REQ == REQ_UPLOAD){
+			printf(" Do you want to receive the file (%d octets)? Y(es)/N(o)", file_req1.size);
+			scanf("%c", &choix);
+			switch(choix){
+				case 'Y' : file_req1.REQ = REQ_OK;
+					 n = send(newSd, &file_req1, sizeof(file_req_t), 0);
+					 break;
+				case 'N' : file_req1.REQ = REQ_KO;
+					 n = send(newSd, &file_req1, sizeof(file_req_t), 0);
+					 break;
+				case '?' : perror("error invalid answer");
+					 return ERROR;
+			}		 
+		} 
+
+
 		/* create a new file which will be a copy of the sent file */
-		if((fic = fopen(file_req1.name, "w+")) == NULL){
-			perror("error memory");
+		sprintf( rep_file, "tmp local/%s", file_req1.name); 
+		if((fic = fopen(rep_file, "w")) == NULL){
+			perror("error : opening file");
+			return ERROR;		
+		}
+	
+		/* reception of the file line by line */
+		memset(line, 0x0, MAX_MSG); /* init buffer */
+		while((n = recv(newSd, line, MAX_MSG, 0)) > 0){
+			cpt_line++;
+			
+			if( fprintf(fic, "%s", line) < 0){  /* write the line on the file */
+				perror("error : writing on file");
+				return ERROR;	
+			}				
+			printf("line n°%d : %s\n", cpt_line, line); 
+			memset(line, 0x0, MAX_MSG);
+		}
+		if(n == 0){
+			perror("Connection closed by the Client\n");
+			return ERROR;		
+		}
+		if(n < 0){
+			perror("Cannot receive data\n");
 			return ERROR;		
 		}
 		
-
-		/* reception of the file line by line */
-		while(recv(newSd, line, MAX_MSG, 0) == MAX_MSG){
-			cpt_line++;
-			
-			if(!fprintf(fic, "%s",line)){  /* write on the file */
-				perror("error writing on file");
-				return ERROR;	
-			}				
-			printf("line n°%d : %s\n", cpt_line, line);
-		}
-		fputs(line, fic);
-		printf("%s\n", line);
-
 	}/*while(1)*/
 	fclose(fic); /* close the file */
+	close(newSd);
 }
 	
 	int read_line(int newSd, char *line_to_return)
