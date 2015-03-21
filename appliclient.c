@@ -8,22 +8,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "common.h"
 
-#define SERVER_PORT 1500
-#define MAX_MSG 100
-
-#define REQ_OK 1
-#define REQ_UPLOAD 2
-#define REQ_KO -1
-
-/* definition of the type file request */
-typedef struct file_req_s {
+typedef struct file_req_s {  /* definition of the type file request */
    char name[20];
    int size;
-   char REQ;
+   char REQ; /* REQ_UPLOAD, REQ_OK or REQ_KO */
 } file_req_t ;
 
-int read_sizef(char * filename);
+extern int read_sizef(char * filename); /* return the size of a file (in octet)*/
 
 int main(int argc, char ** argv){
 	int sd, rc, i;
@@ -81,37 +74,40 @@ int main(int argc, char ** argv){
 	/* initialisation of the file request */
 	strcpy(file_req1.name, argv[2]);
 	file_req1.size = read_sizef(argv[2]);
-	file_req1.REQ = REQ_UPLOAD; /* requete d'envoi de fichier */
+	file_req1.REQ = REQ_UPLOAD; /* request concerning the send of the file */
 
- 	/* send of a file request */
+ 	/* send of the file request */
 	rc = send(sd, &file_req1, sizeof(file_req_t), 0);
 	printf(" send a file request to %s\n", argv[1]);
-	printf("file_req.name : %s\n file_req.size %d\n ", file_req1.name, file_req1.size);
+	printf("file_req.name : %s\n file_req.size : %d\n ", file_req1.name, file_req1.size);
 
 	/* reception of the file request to comfirm */
 	rc = recv(sd, &file_req1, sizeof(file_req_t), 0);
 	(file_req1.REQ == REQ_OK)? printf("reception of the comfirmation :\n") : perror("the transfer cancel by the server");
-
-	/* open a file and send the first line */
-	if((fic = fopen(file_req1.name, "r")) == NULL){
-		perror("error : opening file");
-		exit(-1);	 
+	
+	if(file_req1.REQ == REQ_OK){
+		/* open the file given in argument */
+		if((fic = fopen(file_req1.name, "r")) == NULL){
+			perror("error : opening file");
+			exit(-1);	 
+		}
+		
+		/* send of the file line by line */
+		while(fgets(file_line, MAX_MSG, fic) != NULL){
+			rc = send(sd, file_line, MAX_MSG, 0);
+			cpt_line++;
+			printf("send line n°%d : %s\n", cpt_line, file_line);	
+		}
+		fclose(fic); /* close the file */
 	}
 	
-	/* send of the file line by line*/
-	while(fgets(file_line, MAX_MSG, fic) != NULL){
-		rc = send(sd, file_line, MAX_MSG, 0);
-		cpt_line++;
-		printf("line n°%d : %s\n", cpt_line, file_line);
-		printf("size of the line send : %d\n", rc);	
-	}
 	
-	fclose(fic); /* close the file */
 	close(sd);
 	return 0;
 }
 
-int read_sizef(char * filename){
+/* return the size of a file (in octet)*/
+extern int read_sizef(char * filename){
 	int size;
 	FILE * fic = NULL;
 	
